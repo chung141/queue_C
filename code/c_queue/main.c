@@ -37,7 +37,7 @@ int main() {
     Customer* inside_c3 = TryEnterStore(&waitingQueue); // 남은 좌석이 없어서 NULL 반환되어야 함
 
     if (inside_c3 == NULL) {
-        printf("⚠️ 손님 3번은 좌석이 꽉 차서 입장하지 못하고 웨이팅 큐에서 대기합니다. (남은 대기: %d명)\n\n", waitingQueue.count);
+        printf("손님 3번은 좌석이 꽉 차서 입장하지 못하고 웨이팅 큐에서 대기합니다. (남은 대기: %d명)\n\n", waitingQueue.count);
     }
 
     // 5. 1번 손님 식사 완료 및 퇴장 (LeaveStore 테스트)
