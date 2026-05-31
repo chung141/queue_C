@@ -36,7 +36,7 @@ void LeaveStore(Customer* c, int current_time) {
     total_customers_served++;
     total_stay_time += stay_time;
     
-    // 3. 토큰 반납 (핵심!)
+    // 3. 토큰 반납
     available_seats++; 
     
     printf("[퇴장] 손님 ID: %d 식사 완료 및 퇴장. (체류시간: %d초, 남은 좌석: %d)\n", 
