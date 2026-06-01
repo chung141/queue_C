@@ -45,6 +45,6 @@ Customer* Dequeue(Queue* q) {
     
     q->count--;
     
-    // 4. 빼낸 손님 데이터를 다음 단계로 넘겨줌 (절대 여기서 free 하면 안 됨!)
+    // 4. 빼낸 손님 데이터를 다음 단계로 넘겨줌 (절대 여기서 free 하면 안 됨!) 절대 안돼요
     return target;
 }
