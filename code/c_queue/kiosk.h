@@ -28,6 +28,9 @@ Customer* Generate_Random_Customer(int current_time, int current_id);
  * - 리턴값: 주문을 마친 손님의 Customer* 포인터 (아직 주문 중이면 NULL 반환)
  * - 주문이 끝난 손님을 queue.c에 있는 Dequeue()를 이용해 빼낸 뒤 
  * 리턴해주면, 메인에서 받아서 주방으로 넘길게요
+
+ ++
+ * 손님 생성할 때 타이머 변수(remaining_time)에 주방 요리 시간만 넣지 말고, **'요리 시간 + 손님이 밥 먹는 시간(예: 10분)'**을 합쳐서 세팅해주세요!!!
  */
 Customer* Kiosk_Process_Order(Queue* kiosk_queue);
 
