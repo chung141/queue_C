@@ -1,59 +1,82 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>    // 난수(랜덤) 시드 설정용
 #include "types.h"
 #include "queue.h"
 #include "manager.h"
+#include "kiosk.h"
+#include "kitchen.h"
+
+#define SIMULATION_TIME 3600 // 총 영업시간: 1시간(3600초)
 
 int main() {
-    printf("========== [1단계 테스트] 큐 & 매니저 연동 테스트 ==========\n\n");
+    int scenario_mode;
+    printf("========== 6조 식당 시뮬레이션 ==========\n");
+    printf("실행할 시나리오를 선택하세요.\n");
+    printf("1: 시나리오 1 (FIFO 주방)\n");
+    printf("2: 시나리오 2 (SJF 우선순위 주방)\n");
+    printf("입력: ");
+    scanf("%d", &scenario_mode);
 
-    // 1. 매장 및 큐 초기화 (테스트를 위해 좌석을 딱 2개만 줍니다)
-    InitManager(2); 
-    
-    Queue waitingQueue;
-    InitQueue(&waitingQueue);
+    // 1. 공정한 비교를 위해 고정된 시드값 사용 (매번 똑같은 손님 패턴이 오게 함)
+    srand(1234); 
 
-    // 2. 가상의 손님 3명 생성 (malloc 사용)
-    Customer* c1 = (Customer*)malloc(sizeof(Customer));
-    c1->customer_id = 1; c1->arrival_time = 0; // 0초에 도착
+    // 2. 큐 초기화
+    Queue waiting_queue, kiosk_queue, kitchen_queue;
+    InitQueue(&waiting_queue);
+    InitQueue(&kiosk_queue);
+    InitQueue(&kitchen_queue);
 
-    Customer* c2 = (Customer*)malloc(sizeof(Customer));
-    c2->customer_id = 2; c2->arrival_time = 0; // 0초에 도착
+    // 3. 매니저(이충한) 초기화 (좌석 10개, 선택한 시나리오 번호 전달)
+    InitManager(10, scenario_mode);
 
-    Customer* c3 = (Customer*)malloc(sizeof(Customer));
-    c3->customer_id = 3; c3->arrival_time = 2; // 2초에 도착
+    // 4. ⏰ 시간의 흐름 (메인 시뮬레이션 루프)
+    int current_time = 0;
+    int current_id = 0; // 손님 번호표
 
-    // 3. 웨이팅 큐에 손님들 줄 세우기 (Enqueue 테스트)
-    printf("\n[이벤트] 손님 3명이 매장 밖 웨이팅 큐에 줄을 섭니다.\n");
-    Enqueue(&waitingQueue, c1);
-    Enqueue(&waitingQueue, c2);
-    Enqueue(&waitingQueue, c3);
-    printf("현재 웨이팅 큐 대기 인원: %d명\n\n", waitingQueue.count);
+    while (current_time < SIMULATION_TIME) {
+        
+        // [STEP 1: 손님 유입] - 수마미야 담당
+        // 1초마다 랜덤하게 손님이 오는지 확인
+        Customer* new_guest = Generate_Random_Customer(current_time, current_id);
+        if (new_guest != NULL) {
+            current_id++;
+            Enqueue(&waiting_queue, new_guest); // 웨이팅 큐에 줄 세우기
+        }
 
-    // 4. 매장 입장 시도 (TryEnterStore 테스트)
-    printf("--- [시간: 5초] 매장 문 개방 및 입장 시도 ---\n");
-    Customer* inside_c1 = TryEnterStore(&waitingQueue); // 좌석 1개 소모 (남은 좌석 1)
-    Customer* inside_c2 = TryEnterStore(&waitingQueue); // 좌석 1개 소모 (남은 좌석 0)
-    Customer* inside_c3 = TryEnterStore(&waitingQueue); // 남은 좌석이 없어서 NULL 반환되어야 함
+        // [STEP 2: 매장 입장 통제] - 이충한 담당
+        // 자리가 났으면 웨이팅 큐 -> 매장 안(키오스크 큐)으로 들여보냄
+        Customer* entering_guest = TryEnterStore(&waiting_queue);
+        if (entering_guest != NULL) {
+            Enqueue(&kiosk_queue, entering_guest);
+        }
 
-    if (inside_c3 == NULL) {
-        printf("손님 3번은 좌석이 꽉 차서 입장하지 못하고 웨이팅 큐에서 대기합니다. (남은 대기: %d명)\n\n", waitingQueue.count);
+        // [STEP 3: 키오스크 주문] - 수마미야 담당
+        // 키오스크에서 주문이 끝난 손님이 나오면 주방 큐로 넘김
+        Customer* ordered_guest = Kiosk_Process_Order(&kiosk_queue);
+        if (ordered_guest != NULL) {
+            // 💡 여기서 시나리오에 따라 주방으로 들어가는(Enqueue) 방식이 갈림!
+            if (scenario_mode == 1) {
+                Kitchen_Enqueue_FIFO(&kitchen_queue, ordered_guest);
+            } else if (scenario_mode == 2) {
+                Kitchen_Enqueue_Priority(&kitchen_queue, ordered_guest);
+            }
+        }
+
+        // [STEP 4: 주방 요리 및 퇴장] - 김지원 & 이충한 담당
+        // 주방에서 1초씩 요리를 하고, 다 된 요리(손님)가 나오면 퇴장시킴
+        Customer* finished_guest = Kitchen_Process_Tick(&kitchen_queue);
+        if (finished_guest != NULL) {
+            LeaveStore(finished_guest, current_time); // 식사 완료, 퇴장 및 통계 기록!
+        }
+
+        // 시간 1초 증가
+        current_time++;
     }
 
-    // 5. 1번 손님 식사 완료 및 퇴장 (LeaveStore 테스트)
-    printf("--- [시간: 15초] 1번 손님 식사 완료 ---\n");
-    LeaveStore(inside_c1, 15); // 15초에 퇴장 (토큰 +1 반납)
-
-    // 6. 자리 났으니 3번 손님 다시 입장 시도
-    printf("\n--- [시간: 16초] 3번 손님 다시 입장 시도 ---\n");
-    inside_c3 = TryEnterStore(&waitingQueue); // 방금 자리가 났으므로 입장 성공해야 함
-
-    // 7. 남은 손님들 퇴장 (메모리 누수 방지)
-    printf("\n--- [시간: 30초] 영업 종료, 남은 손님 모두 퇴장 ---\n");
-    LeaveStore(inside_c2, 30);
-    if (inside_c3 != NULL) LeaveStore(inside_c3, 30);
-
-    printf("\n========== 테스트가 성공적으로 종료되었습니다. ==========\n");
+    // 5. 시뮬레이션 종료 및 엑셀(CSV) 저장 마무리
+    CloseManager();
+    printf("시뮬레이션이 성공적으로 종료되었습니다. CSV 파일을 확인해주세요!\n");
 
     return 0;
 }
